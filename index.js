@@ -4,7 +4,7 @@ require('dotenv').config();
 
 const fs = require('fs')
 const { getRepoNames, getAllUserCommits } = require('./bitbucket-pull')
-const ghub = require('./github-push')
+const ghub = require('./github-api')
 
 async function main() {
 

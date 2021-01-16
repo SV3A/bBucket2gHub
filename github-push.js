@@ -1,5 +1,6 @@
 "use strict";
 
+const crypto = require('crypto');
 const ghAPI = require('./github-api')
 
 const repo = "BitbucketShadowContributions";
@@ -21,7 +22,7 @@ async function commitTreeToMain(owner, repo, commit) {
     })
 }
 
-async function initializeRepo(owner, bitbucketRepos) {
+async function initializeRepo(owner, bitbucketRepos, encrypt=false) {
 
     // If repository not already exists create it
     const repos = await ghAPI.getRepos();
@@ -45,6 +46,9 @@ async function initializeRepo(owner, bitbucketRepos) {
     const treeEntries = [];
 
     bitbucketRepos.forEach(bbRepo => {
+        if (encrypt) {
+            bbRepo = crypto.createHash('sha256').update(bbRepo).digest('base64');
+        }
         treeEntries.push({
             path: bbRepo,
             mode: "100644",

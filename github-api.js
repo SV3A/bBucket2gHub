@@ -1,62 +1,20 @@
 "use strict";
 
 require('dotenv').config();
-const fetch = require('node-fetch');
+
+const { makeRequest } = require('./utils')
 
 const apiUrl = "https://api.github.com";
 
-async function _logRequestError(res) {
-    // Prints the failed status and its url
-    let msg;
-
-    // If failed reponse includes a message append it
-    try {
-        let res_json = await res.json();
-        res_json.message ? msg = `:\n    "${res_json.message}"` : msg = "";
-    } finally {}
-
-    console.log(
-        `Request to \x1b[32m${res.url}\x1b[0m ` +
-        `failed with status \x1b[33m${res.status}\x1b[0m${msg}`
-    );
-}
-
-async function _makeRequest(method, url, body) {
-    const opts = {
-        method: method,
-        headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${process.env.GITHUB_TOKEN}`
-        }
-    }
-
-    method = method.toUpperCase();
-    if (method === "PUT"  ||
-        method === "POST" ||
-        method === "PATCH") {
-        opts.body = JSON.stringify(body);
-    }
-
-    try {
-        const res = await fetch(url, opts);
-
-        if (res.ok) {
-            return await res.json();
-        } else {
-            _logRequestError(res);
-            return null;
-        }
-
-    } catch (err) {
-        console.log(err);
-        return null;
-    }
+const headers =  {
+    "Content-Type": "application/json",
+    "Authorization": `Bearer ${process.env.GITHUB_TOKEN}`
 }
 
 async function getRepos() {
     const repoList = [];
 
-    const repos = await _makeRequest("GET", `${apiUrl}/user/repos`);
+    const repos = await makeRequest("GET", `${apiUrl}/user/repos`, headers);
 
     if (repos) {
         repos.forEach(repo => {
@@ -67,7 +25,7 @@ async function getRepos() {
 };
 
 async function createRepo(body) {
-    return await _makeRequest("POST", `${apiUrl}/user/repos`, body);
+    return await makeRequest("POST", `${apiUrl}/user/repos`, headers, body);
 };
 
 async function createBlob(owner, repo, content) {
@@ -80,13 +38,13 @@ async function createBlob(owner, repo, content) {
 
     const url = `${apiUrl}/repos/${owner}/${repo}/git/blobs`;
 
-    return await _makeRequest("POST", url, body);
+    return await makeRequest("POST", url, headers, body);
 }
 
 async function _handleTreeOps(owner, repo, body) {
     const url = `${apiUrl}/repos/${owner}/${repo}/git/trees`;
 
-    return _makeRequest("POST", url, body);
+    return makeRequest("POST", url, headers, body);
 }
 
 async function createTree(owner, repo, treeEntries) {
@@ -107,23 +65,27 @@ async function createCommit(owner, repo, commit) {
     const body = commit;
     const url = `${apiUrl}/repos/${owner}/${repo}/git/commits`;
 
-    return _makeRequest("POST", url, body);
+    return makeRequest("POST", url, headers, body);
 }
 
 async function updateRef(owner, repo, branch, commit_sha, force = false) {
     const url = `${apiUrl}/repos/${owner}/${repo}/git/refs/heads/${branch}`;
 
-    return _makeRequest("PATCH", url, {
+    return makeRequest("PATCH", url, headers, {
         sha: commit_sha,
         force: force
     });
 }
 
 async function getLatestCommitSha(owner, repo, branch) {
+    const commit = getLatestCommit(owner,repo, branch)
+    return commit.sha;
+}
+
+async function getLatestCommit(owner, repo, branch) {
     const url = `${apiUrl}/repos/${owner}/${repo}/commits/${branch}`;
 
-    const commit = await _makeRequest("GET", url);
-    return commit.sha;
+    return await makeRequest("GET", url, headers);
 }
 
 module.exports = {
@@ -134,5 +96,6 @@ module.exports = {
     modifyTree,
     createCommit,
     updateRef,
+    getLatestCommit,
     getLatestCommitSha,
 };

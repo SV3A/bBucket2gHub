@@ -110,10 +110,13 @@ async function createCommit(owner, repo, commit) {
     return _makeRequest("POST", url, body);
 }
 
-async function updateRef(owner, repo, branch, commitSha) {
+async function updateRef(owner, repo, branch, commit_sha, force = false) {
     const url = `${apiUrl}/repos/${owner}/${repo}/git/refs/heads/${branch}`;
 
-    return _makeRequest("PATCH", url, { sha: commitSha });
+    return _makeRequest("PATCH", url, {
+        sha: commit_sha,
+        force: force
+    });
 }
 
 async function getLatestCommitSha(owner, repo, branch) {

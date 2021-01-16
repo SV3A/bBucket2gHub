@@ -5,6 +5,22 @@ const fetch = require('node-fetch');
 
 const apiUrl = "https://api.github.com";
 
+async function _logRequestError(res) {
+    // Prints the failed status and its url
+    let msg;
+
+    // If failed reponse includes a message append it
+    try {
+        let res_json = await res.json();
+        res_json.message ? msg = `:\n    "${res_json.message}"` : msg = "";
+    } finally {}
+
+    console.log(
+        `Request to \x1b[32m${res.url}\x1b[0m ` +
+        `failed with status \x1b[33m${res.status}\x1b[0m${msg}`
+    );
+}
+
 async function _makeRequest(method, url, body) {
     const opts = {
         method: method,
@@ -25,10 +41,9 @@ async function _makeRequest(method, url, body) {
         const res = await fetch(url, opts);
 
         if (res.ok) {
-            const data = await res.json();
-            return data;
+            return await res.json();
         } else {
-            console.log(`Request failed with reponse: ${res.status}`);
+            _logRequestError(res);
             return null;
         }
 

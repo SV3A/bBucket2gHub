@@ -28,6 +28,12 @@ async function createRepo(body) {
     return await makeRequest("POST", `${apiUrl}/user/repos`, headers, body);
 };
 
+async function getBlob(owner, repo, sha) {
+    const url = `${apiUrl}/repos/${owner}/${repo}/git/blobs/${sha}`;
+
+    return await makeRequest("GET", url, headers);
+}
+
 async function createBlob(owner, repo, content) {
     const encodedContent = new Buffer.from(content).toString('base64');
 
@@ -88,14 +94,35 @@ async function getLatestCommit(owner, repo, branch) {
     return await makeRequest("GET", url, headers);
 }
 
+async function getContent(owner, repo, filename, commit) {
+    const url = `${apiUrl}/repos/${owner}/${repo}/content/${filename}?ref=${commit}`
+
+    return await makeRequest("GET", url, headers);
+}
+
+async function fetchContentUrl(url) {
+
+    return await makeRequest("GET", url, headers);
+}
+
+async function getTree(owner, repo, sha) {
+    const url = `${apiUrl}/repos/${owner}/${repo}/git/trees/${sha}`;
+
+    return await makeRequest("GET", url, headers);
+}
+
 module.exports = {
     getRepos,
     createRepo,
+    getBlob,
     createBlob,
+    getTree,
     createTree,
     modifyTree,
     createCommit,
     updateRef,
     getLatestCommit,
     getLatestCommitSha,
+    getContent,
+    fetchContentUrl,
 };

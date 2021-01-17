@@ -3,10 +3,12 @@
 require('dotenv').config();
 
 const fs = require('fs')
+const bitbucketData = require('./bitbuck_data')
 const { getRepoNames, getAllUserCommits } = require('./bitbucket-pull')
-const ghub = require('./github-api')
+const github = require('./github-push')
 
-async function main() {
+
+async function bitbucketTest() {
 
     // Get list of repositories
     console.log("Getting repos...");
@@ -24,4 +26,11 @@ async function main() {
     })
 }
 
-main();
+async function githubTest() {
+    const githubOwner = process.env.GITHUB_OWNER;
+
+    await github.initRepo(githubOwner, bitbucketData);
+    await github.sync(githubOwner, bitbucketData);
+}
+
+githubTest();

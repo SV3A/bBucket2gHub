@@ -109,6 +109,8 @@ async function _getContents_sha(filename) {
             return entry.sha;
         }
     }
+
+    return null;
 }
 
 async function _commitUpdate(filename, content, date) {
@@ -141,22 +143,12 @@ async function _commitUpdate(filename, content, date) {
     await ghAPI.updateRef(owner, repo, "main", commit.sha);
 }
 
-async function _updateShadow(repoName, commits) {
-    // Finds the shadow file in the GitHub repo which tracks the current
-    // Bitbucket repository, then gets and updates its content
-
-    // Get content url
-    const blob_sha = await _getContents_sha(repoName);
-
-    // Get the current content in the shadow file
-    let content = await _getRemoteContent(blob_sha);
-
-    // Update the shadow file
+async function _transferCommits(repoName, commits, content) {
 
     // Commit Bitbucket commit-hashes one by one to GitHub
     let contentArray;
-
     let commitsAdded = 0;
+
     for (let ii = 0; ii < commits.length; ii++) {
         const commit = commits[ii];
 
@@ -180,15 +172,32 @@ async function _updateShadow(repoName, commits) {
     );
 }
 
+async function _updateShadow(repoName, commits) {
+    // Finds the shadow file in the GitHub repo which tracks the current
+    // Bitbucket repository, then gets and updates its content
+
+    // Get content url
+    const blob_sha = await _getContents_sha(repoName);
+
+    // Get the current content in the shadow file
+    let content;
+
+    if (blob_sha) {
+        content = await _getRemoteContent(blob_sha);
+    } else {
+        content = "";
+    }
+
+    // Update the shadow file
+    await _transferCommits(repoName, commits, content);
+}
+
 async function sync(owner, bitbucketData) {
 
     for (let ii = 0; ii < bitbucketData.length; ii++) {
         const repoName = bitbucketData[ii].repo;
         const commits = bitbucketData[ii].commits;
         
-        // Check if exist
-        // mkShadow()
-
         console.log(`Syncing ${ii+1} out of ${bitbucketData.length}`);
         await _updateShadow(repoName, commits);
     }

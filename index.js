@@ -33,4 +33,5 @@ async function githubTest() {
     await github.sync(githubOwner, bitbucketData);
 }
 
+// bitbucketTest();
 githubTest();

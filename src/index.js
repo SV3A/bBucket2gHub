@@ -3,9 +3,9 @@
 require('dotenv').config();
 
 const fs = require('fs')
-const bitbucketData = require('./bitbuck_data')
-const { getRepoNames, getAllUserCommits } = require('./bitbucket-pull')
-const github = require('./github-push')
+const bitbucketData = require('./data/bitbuck_data')
+const { getRepoNames, getAllUserCommits } = require('./bitbucket/bitbucket-pull')
+const github = require('./github/github-push')
 
 
 async function bitbucketTest() {

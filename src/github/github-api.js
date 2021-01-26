@@ -2,7 +2,7 @@
 
 require('dotenv').config();
 
-const { makeRequest } = require('./utils')
+const { makeRequest } = require('../utils')
 
 const apiUrl = "https://api.github.com";
 

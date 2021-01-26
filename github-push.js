@@ -1,119 +1,67 @@
 "use strict";
 
-const crypto = require('crypto');
 const ghAPI = require('./github-api')
 
 const owner = process.env.GITHUB_OWNER;
 const repo = "BitbucketShadowContributions";
 
-async function commitTreeToMain(owner, repo, commit) {
-    ghAPI.createCommit(owner, repo, {
-        message: commit.msg,
-        tree: commit.tree,
-        parents: commit.parents,
-        author: {
-            name: commit.name,
-            email: commit.email,
-        }
-    }).then(r => {
-        console.log(r);
-        if (r) {
-            ghAPI.updateRef(owner, repo, "main", r.sha, true).then(r => console.log(r));
-        }
-    })
-}
-
-async function initRepo(owner, bitbucketData, encrypt=false) {
-
-    const bitbucketRepos = _getRepoList(bitbucketData);
-
-    // If repository not already exists create it
+async function githubRepoExists() {
     const repos = await ghAPI.getRepos();
 
-    if (!repos.includes(repo)) {
-        await ghAPI.createRepo(
-            {
-                name: repo,
-                description: "Created by Bitbucket2GitHub",
-                homepage: "https://github.com/SV3A/bBucket2gHub",
-                private: true,
-                auto_init: true
-            });
-    } else {
-        console.log("Bitbucket2GitHub already exists.");
-        return;
-    }
+    return repos.includes(repo);
+}
 
-    // Populate the newly created Github repository with a file for each of the
-    // Bitbucket repositories
-    const treeEntries = [];
+async function initRepo() {
+    console.log("Creating repo...");
 
-    bitbucketRepos.forEach(bbRepo => {
-        if (encrypt) {
-            bbRepo = crypto.createHash('sha256').update(bbRepo).digest('base64');
-        }
-        treeEntries.push({
-            path: bbRepo,
-            mode: "100644",
-            type: "blob",
-            content: ""
+    const response = await ghAPI.createRepo(
+        {
+            name: repo,
+            description: "Created by Bitbucket2GitHub",
+            homepage: "https://github.com/SV3A/bBucket2gHub",
+            private: true,
+            auto_init: true
         });
-    })
 
-    try {
-        const newTree = await ghAPI.createTree(owner, repo, treeEntries);
-
-        if (newTree.sha) {
-            commitTreeToMain(owner, repo, {
-                name: owner.toLowerCase(),
-                email: process.env.GITHUB_MAIL,
-                msg: "Initial commit",
-                tree: newTree.sha,
-                parents: []
-            });
-        } else {
-            throw "Failed to init repo: tree could not be created";
-        }
-    } catch(err) {
-        console.log(err);
+    if (!response.ok) {
+        throw new Error("Initialization of repository failed");
     }
 
 }
 
-function _getRepoList(bitbucketData) {
-    const bitbucketRepos = [];
-    bitbucketData.forEach(repo => {
-        bitbucketRepos.push(repo.repo)
-    })
-    return bitbucketRepos;
-}
+async function _getBlobContents(sha) {
 
-async function _getRemoteContent(blob_sha) {
-    
-    const response = await ghAPI.getBlob(owner, repo, blob_sha);
+    const response = await ghAPI.getBlob(owner, repo, sha);
 
     return (
         new Buffer.from(response.content, response.encoding).toString("utf8")
     );
 }
 
-async function _getContents_sha(filename) {
-    const head = await ghAPI.getLatestCommit(owner, repo, "main");
+async function _queryBlobSha(filename) {
 
-    const res = await ghAPI.getTree(owner, repo, head.commit.tree.sha);
+    try {
+        const head = await ghAPI.getLatestCommit(owner, repo, "main");
 
-    for (let ii = 0; ii < res.tree.length; ii++) {
-        const entry = res.tree[ii];
+        const res = await ghAPI.getTree(owner, repo, head.commit.tree.sha);
 
-        if (entry.path === filename) {
-            return entry.sha;
+        // Loop over blobs in tree
+        for (let ii = 0; ii < res.tree.length; ii++) {
+            const entry = res.tree[ii];
+
+            if (entry.path === filename) {
+                return { exist: true, sha: entry.sha };
+            }
         }
-    }
 
-    return null;
+        return { exist: false, sha: null };
+
+    } catch {
+        throw new Error("Query for blob failed");
+    }
 }
 
-async function _commitUpdate(filename, content, date) {
+async function _commitShadow(filename, content, date) {
 
     const head = await ghAPI.getLatestCommit(owner, repo, "main");
 
@@ -143,63 +91,75 @@ async function _commitUpdate(filename, content, date) {
     await ghAPI.updateRef(owner, repo, "main", commit.sha);
 }
 
-async function _transferCommits(repoName, commits, content) {
-
-    // Commit Bitbucket commit-hashes one by one to GitHub
-    let contentArray;
+async function _mkOrUpdateShadow(repoName, commits, content) {
+    // Commit Bitbucket commit-hashes one by one to GitHub shadow files
     let commitsAdded = 0;
+
+    let contentArray;
 
     for (let ii = 0; ii < commits.length; ii++) {
         const commit = commits[ii];
 
+        // Convert lines in str to array for easier handling
         contentArray = content.split('\n')
 
         // Check that the Bitbucket hash is not already in the shadow file
-        if ( !contentArray.includes(commit.hash) ) {
+        if (!contentArray.includes(commit.hash)) {
             contentArray.push(commit.hash)
 
             content = contentArray.join('\n').trim();
 
             // Commit
-            await _commitUpdate(repoName, content, commit.date);
+            await _commitShadow(repoName, content, commit.date);
             commitsAdded += 1;
         }
     }
 
+    // Print msg: "- Added X commits from [REPO/SHADOW NAME]"
     console.log(
         `- Added \x1b[33m${commitsAdded}\x1b[0m commits ` +
         `from \x1b[32m${repoName}\x1b[0m`
     );
 }
 
-async function _updateShadow(repoName, commits) {
-    // Finds the shadow file in the GitHub repo which tracks the current
-    // Bitbucket repository, then gets and updates its content
+async function _getOrInitShadowContent(repoName) {
+    const shadowFilename = repoName;
 
-    // Get content url
-    const blob_sha = await _getContents_sha(repoName);
+    const blob = await _queryBlobSha(shadowFilename);
 
-    // Get the current content in the shadow file
+    // Get the current content in the shadow file, if shadow does not exist,
+    // we init a new contect string
     let content;
 
-    if (blob_sha) {
-        content = await _getRemoteContent(blob_sha);
+    if (blob.exist) {
+        content = await _getBlobContents(blob.sha);
     } else {
         content = "";
     }
 
-    // Update the shadow file
-    await _transferCommits(repoName, commits, content);
+    return content;
 }
 
 async function sync(owner, bitbucketData) {
+    owner = owner
 
+    // Create GitHub shadow repository if it doesn't already exist
+    if (! await githubRepoExists()) {
+        await initRepo();
+    }
+
+    // For each repository on Bitbucket, update (or create) shadow file on
+    // GitHub
     for (let ii = 0; ii < bitbucketData.length; ii++) {
         const repoName = bitbucketData[ii].repo;
         const commits = bitbucketData[ii].commits;
-        
-        console.log(`Syncing ${ii+1} out of ${bitbucketData.length}`);
-        await _updateShadow(repoName, commits);
+
+        // Print msg: "Syncing X out of Y"
+        console.log(`Syncing ${ii + 1} out of ${bitbucketData.length}`);
+
+        const content = await _getOrInitShadowContent(repoName);
+
+        await _mkOrUpdateShadow(repoName, commits, content);
     }
 }
 

@@ -33,15 +33,17 @@ async function makeRequest(method, url, headers, body) {
         const res = await fetch(url, opts);
 
         if (res.ok) {
-            return await res.json();
+            const json = await res.json();
+            json.ok = true;
+            return json
         } else {
             _logRequestError(res);
-            return null;
+            return {ok: false};
         }
 
     } catch (err) {
         console.log(err);
-        return null;
+        return {ok: false};
     }
 }
 

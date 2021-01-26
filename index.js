@@ -29,7 +29,6 @@ async function bitbucketTest() {
 async function githubTest() {
     const githubOwner = process.env.GITHUB_OWNER;
 
-    await github.initRepo(githubOwner, bitbucketData);
     await github.sync(githubOwner, bitbucketData);
 }
 

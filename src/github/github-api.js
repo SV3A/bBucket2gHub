@@ -1,128 +1,125 @@
 "use strict";
 
-require('dotenv').config();
-
 const { makeRequest } = require('../utils')
 
-const apiUrl = "https://api.github.com";
+const API_URL = "https://api.github.com";
 
-const headers =  {
-    "Content-Type": "application/json",
-    "Authorization": `Bearer ${process.env.GITHUB_TOKEN}`
-}
+class GithubAPI {
 
-async function getRepos() {
-    const repoList = [];
-
-    const repos = await makeRequest("GET", `${apiUrl}/user/repos`, headers);
-
-    if (repos) {
-        repos.forEach(repo => {
-            repoList.push(repo.name)
-        })
+    constructor(token) {
+        this.headers =  {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+        }
     }
-    return repoList;
-};
 
-async function createRepo(body) {
-    return await makeRequest("POST", `${apiUrl}/user/repos`, headers, body);
-};
+    async getRepos() {
+        const repoList = [];
 
-async function getBlob(owner, repo, sha) {
-    const url = `${apiUrl}/repos/${owner}/${repo}/git/blobs/${sha}`;
+        const repos = (
+            await makeRequest("GET", `${API_URL}/user/repos`, this.headers)
+        );
 
-    return await makeRequest("GET", url, headers);
-}
-
-async function createBlob(owner, repo, content) {
-    const encodedContent = new Buffer.from(content).toString('base64');
-
-    const body = {
-        content: encodedContent,
-        encoding: "base64"
+        if (repos) {
+            repos.forEach(repo => {
+                repoList.push(repo.name)
+            })
+        }
+        return repoList;
     };
 
-    const url = `${apiUrl}/repos/${owner}/${repo}/git/blobs`;
-
-    return await makeRequest("POST", url, headers, body);
-}
-
-async function _handleTreeOps(owner, repo, body) {
-    const url = `${apiUrl}/repos/${owner}/${repo}/git/trees`;
-
-    return makeRequest("POST", url, headers, body);
-}
-
-async function createTree(owner, repo, treeEntries) {
-    const body = { tree: treeEntries };
-
-    return _handleTreeOps(owner, repo, body);
-}
-
-async function modifyTree(owner, repo, baseTree, treeEntries) {
-    const body = {
-        tree: treeEntries,
-        base_tree: baseTree
+    async createRepo(body) {
+        return (
+            await makeRequest("POST", `${API_URL}/user/repos`, this.headers, body)
+        );
     };
-    return _handleTreeOps(owner, repo, body);
-}
 
-async function createCommit(owner, repo, commit) {
-    const body = commit;
-    const url = `${apiUrl}/repos/${owner}/${repo}/git/commits`;
+    async getBlob(owner, repo, sha) {
+        const url = `${API_URL}/repos/${owner}/${repo}/git/blobs/${sha}`;
 
-    return makeRequest("POST", url, headers, body);
-}
+        return await makeRequest("GET", url, this.headers);
+    }
 
-async function updateRef(owner, repo, branch, commit_sha, force = false) {
-    const url = `${apiUrl}/repos/${owner}/${repo}/git/refs/heads/${branch}`;
+    async createBlob(owner, repo, content) {
+        const encodedContent = new Buffer.from(content).toString('base64');
 
-    return makeRequest("PATCH", url, headers, {
-        sha: commit_sha,
-        force: force
-    });
-}
+        const body = {
+            content: encodedContent,
+            encoding: "base64"
+        };
 
-async function getLatestCommitSha(owner, repo, branch) {
-    const commit = getLatestCommit(owner,repo, branch)
-    return commit.sha;
-}
+        const url = `${API_URL}/repos/${owner}/${repo}/git/blobs`;
 
-async function getLatestCommit(owner, repo, branch) {
-    const url = `${apiUrl}/repos/${owner}/${repo}/commits/${branch}`;
+        return await makeRequest("POST", url, this.headers, body);
+    }
 
-    return await makeRequest("GET", url, headers);
-}
+    async _handleTreeOps(owner, repo, body) {
+        const url = `${API_URL}/repos/${owner}/${repo}/git/trees`;
 
-async function getContent(owner, repo, filename, commit) {
-    const url = `${apiUrl}/repos/${owner}/${repo}/content/${filename}?ref=${commit}`
+        return makeRequest("POST", url, this.headers, body);
+    }
 
-    return await makeRequest("GET", url, headers);
-}
+    async createTree(owner, repo, treeEntries) {
+        const body = { tree: treeEntries };
 
-async function fetchContentUrl(url) {
+        return this._handleTreeOps(owner, repo, body);
+    }
 
-    return await makeRequest("GET", url, headers);
-}
+    async modifyTree(owner, repo, baseTree, treeEntries) {
+        const body = {
+            tree: treeEntries,
+            base_tree: baseTree
+        };
+        return this._handleTreeOps(owner, repo, body);
+    }
 
-async function getTree(owner, repo, sha) {
-    const url = `${apiUrl}/repos/${owner}/${repo}/git/trees/${sha}`;
+    async createCommit(owner, repo, commit) {
+        const body = commit;
+        const url = `${API_URL}/repos/${owner}/${repo}/git/commits`;
 
-    return await makeRequest("GET", url, headers);
-}
+        return makeRequest("POST", url, this.headers, body);
+    }
+
+    async updateRef(owner, repo, branch, commit_sha, force = false) {
+        const url = `${API_URL}/repos/${owner}/${repo}/git/refs/heads/${branch}`;
+
+        return makeRequest("PATCH", url, this.headers, {
+            sha: commit_sha,
+            force: force
+        });
+    }
+
+    async getLatestCommitSha(owner, repo, branch) {
+        const commit = getLatestCommit(owner,repo, branch)
+        return commit.sha;
+    }
+
+    async getLatestCommit(owner, repo, branch) {
+        const url = `${API_URL}/repos/${owner}/${repo}/commits/${branch}`;
+
+        return await makeRequest("GET", url, this.headers);
+    }
+
+    async getContent(owner, repo, filename, commit) {
+        const url = (
+            `${API_URL}/repos/${owner}/${repo}/content/${filename}?ref=${commit}`
+        );
+
+        return await makeRequest("GET", url, this.headers);
+    }
+
+    async fetchContentUrl(url) {
+
+        return await makeRequest("GET", url, this.headers);
+    }
+
+    async getTree(owner, repo, sha) {
+        const url = `${API_URL}/repos/${owner}/${repo}/git/trees/${sha}`;
+
+        return await makeRequest("GET", url, this.headers);
+    }
+};
 
 module.exports = {
-    getRepos,
-    createRepo,
-    getBlob,
-    createBlob,
-    getTree,
-    createTree,
-    modifyTree,
-    createCommit,
-    updateRef,
-    getLatestCommit,
-    getLatestCommitSha,
-    getContent,
-    fetchContentUrl,
+    GithubAPI
 };

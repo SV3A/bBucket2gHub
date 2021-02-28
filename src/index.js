@@ -2,35 +2,29 @@
 
 require('dotenv').config();
 
-const fs = require('fs')
-const bitbucketData = require('./data/bitbuck_data')
-const { getRepoNames, getAllUserCommits } = require('./bitbucket/bitbucket-pull')
-const github = require('./github/github-push')
+const { GithubPusher } = require('./github/github-push')
+const { BitbucketPuller } = require('./bitbucket/bitbucket-pull')
 
+async function main() {
 
-async function bitbucketTest() {
+    const bitbucketPull = new BitbucketPuller({
+        username: process.env.BITBUCKET_USERNAME,
+        mail: process.env.BITBUCKET_MAIL,
+        pw: process.env.BITBUCKET_PASSWORD,
+        workspace: process.env.BITBUCKET_WORKSPACE
+    });
 
-    // Get list of repositories
-    console.log("Getting repos...");
-    const repos = await getRepoNames();
+    const repos = await bitbucketPull.getRepoNames();
+    const bitbucketCommits = await bitbucketPull.getAllUserCommits(repos)
 
-    // Find all commits made by user with following mail
-    const mail = process.env.MAIL;
-    const userCommits = await getAllUserCommits(repos, mail);
+    const githubPush = new GithubPusher({
+        owner: process.env.GITHUB_OWNER,
+        username: process.env.GITHUB_USERNAME,
+        mail: process.env.GITHUB_MAIL,
+        token: process.env.GITHUB_TOKEN,
+    });
 
-    // Write results
-    const jsonStr = JSON.stringify(userCommits, null, 2)
-
-    fs.writeFile('./bitbuck_data.json', jsonStr, err => {
-        err && console.log(err)
-    })
+    await githubPush.sync(bitbucketCommits);
 }
 
-async function githubTest() {
-    const githubOwner = process.env.GITHUB_OWNER;
-
-    await github.sync(githubOwner, bitbucketData);
-}
-
-// bitbucketTest();
-githubTest();
+main();

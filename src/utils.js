@@ -23,6 +23,7 @@ async function makeRequest(method, url, headers, body) {
     }
 
     method = method.toUpperCase();
+
     if (method === "PUT"  ||
         method === "POST" ||
         method === "PATCH") {

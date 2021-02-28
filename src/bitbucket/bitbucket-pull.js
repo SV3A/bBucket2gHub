@@ -1,114 +1,125 @@
 "use strict";
 
-require('dotenv').config();
-const fetch = require('node-fetch');
+const { makeRequest } = require('../utils')
 
-const username = process.env.USERNAME;
-const pw = process.env.PASSWORD;
-const workspace = process.env.WORKSPACE;
+const API_URL = "https://api.bitbucket.org/2.0";
 
-const apiUrl = "https://api.bitbucket.org/2.0";
+class BitbucketPuller {
 
-const opts = {
-    method: 'get',
-    headers: {
-        'Content-Type': 'application/json',
-        "Authorization": "Basic " +
-            new Buffer.from(username + ":" + pw).toString('base64')
+    constructor(user) {
+        this.username = user.username;
+        this.pw = user.pw;
+        this.workspace = user.workspace;
+        this.usermail = user.mail;
+
+        this.commitsBuffer = [];
+
+        this.headers =  {
+            "Content-Type": "application/json",
+            "Authorization": "Basic " +
+                new Buffer.from(this.username + ":" + this.pw).toString('base64')
+        }
     }
-};
 
-function getMail(authorRawStr) {
-    // Extracts the mail address of the "raw author" string, e.g.
-    // "abc <abc@somewhere.com>", via a regular expression
+    _getMail(authorRawStr) {
+        // Extracts the mail address of the "raw author" string, e.g.
+        // "abc <abc@somewhere.com>", via a regular expression
 
-    const mailMatch = authorRawStr.match(/(?:\<)(.*)(?=\>)/);
+        const mailMatch = authorRawStr.match(/(?:\<)(.*)(?=\>)/);
 
-    if (mailMatch) {
-        return mailMatch[1]; // Second capture group
-    } else {
-        return null;
+        if (mailMatch) {
+            return mailMatch[1]; // Second capture group
+        } else {
+            return null;
+        }
     }
-}
 
-async function getRepoNames() {
-    // Gets the slugs of all repos found in the chosen "workspace"
+    async _getRepoCommits(repo) {
+        // Returns all the commits made by the user in the specified repository
 
-    const results = [];
-
-    let url = `${apiUrl}/repositories/${workspace}?fields=next,values.slug`
-
-    // do-while loop that handles the pagination of the API
-    do {
-        const res = await fetch(url, opts);
-
-        const data = await res.json();
-
-        data.values.forEach(item => {
-            results.push(item.slug);
-        });
-
-        url = data.next;
-    } while (url)
-
-    return results;
-};
-
-async function getAllUserCommits(repos, userMail) {
-    const userCommits = []; // All the commits made by the user
-
-    for (let ii = 0; ii < repos.length; ii++) {
-        const repo = repos[ii];
-
-        console.log(`Searching "${repo}"`);
-        
         let commits = [];
 
         let url = (
-            `${apiUrl}/repositories/${workspace}/${repo}/commits/` +
+            `${API_URL}/repositories/${this.workspace}/${repo}/commits/` +
             "?fields=next,values.author,values.date,values.hash"
         );
 
         // do-while loop that handles the pagination of the API
         do {
-            try {
-                const res = await fetch(url, opts);
+            const data = await makeRequest("GET", url, this.headers);
 
-                if (res.ok) {
-                    const data = await res.json();
+            if (data.ok) {
 
-                    data.values.forEach(item => {
+                data.values.forEach(item => {
 
-                        const mail = getMail(item.author.raw);
+                    const mail = this._getMail(item.author.raw);
 
-                        if (mail === userMail.trim()) {
-                            commits.push(
-                                {
-                                    "hash": item.hash,
-                                    "date": item.date,
-                                    "user": mail
-                                }
-                            );
-                        }
-                    });
+                    if (mail === this.usermail) {
+                        commits.push({
+                            "hash": item.hash,
+                            "date": item.date,
+                            "user": mail
+                        });
+                    }
+                });
 
-                    url = data.next;
-                } else {
-                    url = null;
-                }
-
-            } catch (err) {
-                console.log(err);
+                url = data.next;
+            } else {
+                url = null;
             }
 
         } while (url)
 
         if (commits && commits.length > 0) {
-            userCommits.push( { "repo": repo, "commits": commits });
+            this.commitsBuffer.push({
+                "repo": repo, "commits": commits
+            });
         }
     }
 
-    return userCommits;
+    async getRepoNames() {
+        // Gets the slugs of all repos found in the workspace
+
+        console.log("Getting repo list from Bitbucket...");
+
+        const results = [];
+
+        let url = (
+            `${API_URL}/repositories/${this.workspace}?fields=next,values.slug`
+        );
+
+        // do-while loop that handles the pagination of the API
+        do {
+            const data = await makeRequest("GET", url, this.headers);
+
+            data.values.forEach(item => {
+                results.push(item.slug);
+            });
+
+            url = data.next;
+        } while (url)
+
+        return results;
+    };
+
+    async getAllUserCommits(repos) {
+
+        const promises = [];
+        this.commitsBuffer = [];
+
+        console.log(`Fetching commits from ${repos.length} Bitbucket repos...`);
+
+        for (let ii = 0; ii < repos.length; ii++) {
+            promises.push(
+                this._getRepoCommits(repos[ii])
+            );
+        }
+
+        await Promise.all(promises);
+        console.log("Done.");
+
+        return this.commitsBuffer;
+    }
 }
 
-module.exports = { getRepoNames, getAllUserCommits };
+module.exports = { BitbucketPuller };

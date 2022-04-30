@@ -42,3 +42,16 @@ For now the program works with username/password for Bitbucket and [Personal acc
 ``` bash
 $ node src/index.js
 ```
+## Beta support for Azure DevOps
+
+### 1) Add required environment variables
+```
+AZURE_MAIL=[FILL ACCORDINGLY]
+AZURE_TOKEN=[FILL ACCORDINGLY]
+AZURE_PROJECT=[FILL ACCORDINGLY]
+AZURE_ORG=[FILL ACCORDINGLY]
+```
+
+### 2) Run the program
+$ node src/index_azure.js
+

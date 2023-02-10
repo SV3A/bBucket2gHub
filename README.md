@@ -24,17 +24,7 @@ $ cd bBucket2gHub
 $ npm install
 ```
 ### 2) Create an environment file with credentials:
-Create a file called `.env` at the project root, which contains the following environment variables:
-```
-BITBUCKET_USERNAME=[FILL ACCORDINGLY]
-BITBUCKET_MAIL=[FILL ACCORDINGLY]
-BITBUCKET_PASSWORD=[YOUR PASSWORD]
-BITBUCKET_WORKSPACE=[SOME_WORKSPACE]
-
-GITHUB_OWNER=[FILL ACCORDINGLY]
-GITHUB_USERNAME=[FILL ACCORDINGLY]
-GITHUB_MAIL=[FILL ACCORDINGLY]
-GITHUB_TOKEN=[YOUR TOKEN]
+Rename the file .env.example to .env and fill accordingly
 ```
 For now the program works with username/password for Bitbucket and [Personal access tokens](https://docs.github.com/en/github/authenticating-to-github/creating-a-personal-access-token) for GitHub. So make sure to create such a token and add it to the `.env` file.
 

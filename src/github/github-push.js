@@ -126,8 +126,7 @@ class GithubPusher {
 
         // Print msg: "- Added X commits from [REPO/SHADOW NAME]"
         console.log(
-            `- Added \x1b[33m${commitsAdded}\x1b[0m commits ` +
-            `from \x1b[32m${repoName}\x1b[0m`
+            `- Added \x1b[33m${commitsAdded}\x1b[0m commits`
         );
     }
 
@@ -163,7 +162,7 @@ class GithubPusher {
             const commits = bitbucketData[ii].commits;
 
             // Print msg: "Syncing X out of Y"
-            console.log(`Syncing ${ii + 1} out of ${bitbucketData.length}`);
+            console.log(`Syncing \x1b[32m${repoName}\x1b[0m (${ii + 1}/${bitbucketData.length})`);
 
             const content = await this._getOrInitShadowContent(repoName);
 

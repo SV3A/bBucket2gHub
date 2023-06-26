@@ -23,9 +23,10 @@ $ git clone https://github.com/SV3A/bBucket2gHub.git
 $ cd bBucket2gHub
 $ npm install
 ```
+
 ### 2) Create an environment file with credentials:
-Rename the file .env.example to .env and fill accordingly
-```
+Rename the file `.env.example` to `.env` and fill accordingly
+
 For now the program works with username/password for Bitbucket and [Personal access tokens](https://docs.github.com/en/github/authenticating-to-github/creating-a-personal-access-token) for GitHub. So make sure to create such a token and add it to the `.env` file.
 
 ### 3) Run the program:
